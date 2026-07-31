@@ -1,0 +1,22 @@
+{
+  "name": "crest-server",
+  "version": "1.0.0",
+  "description": "Crest paper-trading backend (Express + MongoDB)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "seed": "node src/seed.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
