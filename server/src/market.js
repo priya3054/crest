@@ -15,14 +15,18 @@ const round2 = (n) => Math.round(n * 100) / 100;
 const market = new Map();
 let timer = null;
 
-// Build ~64 points of gently-wandering history around each stock's anchor price,
-// exactly like the design prototype so charts/sparklines look alive from tick 0.
+// Retain a deep history so the detail chart's 1D/1W/1M/1Y ranges show genuinely
+// different windows (not just cosmetic chips). Sparklines still read the last ~32.
+const HISTORY = 240;
+
+// Build a gently-wandering history around each stock's anchor price so
+// charts/sparklines look alive from tick 0.
 export function hydrateMarket(stockDefs) {
   market.clear();
   for (const d of stockDefs) {
     const hist = [];
     let p = d.anchor * (0.994 + 0.012 * Math.random());
-    for (let k = 0; k < 64; k++) {
+    for (let k = 0; k < HISTORY; k++) {
       p = Math.max(1, p * (1 + (Math.random() - 0.5) * 0.005));
       hist.push(round2(p));
     }
@@ -52,7 +56,7 @@ async function tick() {
     const d = (Math.random() - 0.494) * vol * s.vf * s.price;
     const np = Math.max(1, s.price + d);
     s.price = round2(np);
-    s.hist = s.hist.concat(s.price).slice(-80);
+    s.hist = s.hist.concat(s.price).slice(-HISTORY);
     s.flash = d > 0 ? 1 : -1;
   }
   await processLimitOrders();

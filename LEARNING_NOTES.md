@@ -120,3 +120,32 @@ class of XSS token theft). Worth knowing the trade-off.
 **Verified end-to-end:** demo login, wrong-password rejection, new-user signup
 with ₹1,00,000 starter funds and an isolated empty portfolio, duplicate-email
 rejection, logout, and full data isolation between two accounts.
+
+---
+
+## Phase 2.1 — Detailed audit & depth pass
+
+A full feature-by-feature audit against the design handoff, testing every flow
+live (buy, sell, limit→pending→cancel, funds add/withdraw + validation, watchlist
+search/add/remove, filters, empty states, auth) and reviewing the code for
+correctness. Two improvements came out of it:
+
+### Chart ranges made real (not cosmetic)
+The 1D/1W/1M/1Y chips previously just changed styling — every range drew the same
+data. The sim now retains **240 points** of history (was ~80) and `PriceChart`
+slices a different window per range (1D≈55, 1W≈110, 1M≈170, 1Y=all 240), so the
+chips genuinely change the chart. Sparklines still read the last ~32.
+
+### Crisp, undistorted chart
+The chart used to stretch a fixed `600×250` viewBox to fit its container, which
+subtly distorted the line and turned the end-dot into an ellipse. It now uses a
+`ResizeObserver` to measure its real pixel width and draws geometry in true
+pixels — the line is crisp and the dot is a perfect circle at any width.
+
+### Things confirmed genuinely done (not superficial)
+Market/limit orders with weighted-average buys and limit auto-fill; every
+validation error returns the exact spec copy; Indian digit grouping everywhere;
+tick-flash; order book depth bars + spread; per-filter empty states; the full
+Razorpay-sim funds flow (form→processing→success). Known trade-offs left as-is on
+purpose: prices carry the spec's slight upward bias (faithful to the prototype),
+and the JWT lives in localStorage (simple; a cookie would be stricter).

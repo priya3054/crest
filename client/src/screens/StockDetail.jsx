@@ -111,7 +111,7 @@ export function StockDetail() {
                 ))}
               </div>
             </div>
-            <PriceChart data={s.hist} color={color} height={250} />
+            <PriceChart data={s.hist} color={color} height={250} range={range} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
               <Stat label="OPEN" value={inr(s.hist[0])} />
               <Stat label="HIGH" value={inr(Math.max(...s.hist))} />
