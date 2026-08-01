@@ -5,6 +5,7 @@ import { connectDB } from './db.js';
 import { Stock } from './models/index.js';
 import { hydrateMarket, startSim } from './market.js';
 import apiRouter from './routes/api.js';
+import authRouter from './routes/auth.js';
 
 const PORT = process.env.PORT || 4000;
 
@@ -24,6 +25,7 @@ async function main() {
   app.use(express.json());
 
   app.get('/health', (_req, res) => res.json({ ok: true }));
+  app.use('/api/auth', authRouter);
   app.use('/api', apiRouter);
 
   app.listen(PORT, () => console.log(`[server] listening on http://localhost:${PORT}`));

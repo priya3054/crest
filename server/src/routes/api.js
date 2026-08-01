@@ -2,9 +2,14 @@ import { Router } from 'express';
 import { Account, Holding, Order, Transaction } from '../models/index.js';
 import { getMarket, getStock, marketStatus } from '../market.js';
 import { applyTrade } from '../trade.js';
+import { requireAuth } from '../middleware.js';
+import { nextId } from '../ids.js';
 
 const router = Router();
 const round2 = (n) => Math.round(n * 100) / 100;
+
+// Everything below requires a signed-in user; req.userId is set by requireAuth.
+router.use(requireAuth);
 
 // ---- serializers: turn DB/market docs into the flat shapes the client renders ----
 const serStock = (s) => ({
@@ -19,7 +24,7 @@ const serStock = (s) => ({
 });
 const serOrder = (o) => ({
   id: o.orderId,
-  ts: o.ts.getTime(),
+  ts: new Date(o.ts).getTime(),
   symbol: o.symbol,
   side: o.side,
   type: o.type,
@@ -30,7 +35,7 @@ const serOrder = (o) => ({
 });
 const serTxn = (t) => ({
   id: t.txnId,
-  ts: t.ts.getTime(),
+  ts: new Date(t.ts).getTime(),
   type: t.type,
   via: t.via,
   amount: t.amount,
@@ -38,35 +43,27 @@ const serTxn = (t) => ({
   status: t.status,
 });
 
-async function nextId(Model, field, prefix, floor) {
-  const docs = await Model.find({}, field);
-  const max = docs.reduce((m, d) => {
-    const n = parseInt(String(d[field]).split('-')[1], 10);
-    return Number.isNaN(n) ? m : Math.max(m, n);
-  }, floor);
-  return `${prefix}-${max + 1}`;
-}
-
-// ---- GET /api/state : full snapshot to hydrate the app on load ----
-router.get('/state', async (_req, res) => {
+// ---- GET /api/state : full snapshot for the signed-in user ----
+router.get('/state', async (req, res) => {
   const [account, holdings, orders, txns] = await Promise.all([
-    Account.findOne(),
-    Holding.find().lean(),
-    Order.find().sort({ ts: -1 }).lean(),
-    Transaction.find().sort({ ts: -1 }).lean(),
+    Account.findOne({ userId: req.userId }),
+    Holding.find({ userId: req.userId }).lean(),
+    Order.find({ userId: req.userId }).sort({ ts: -1 }).lean(),
+    Transaction.find({ userId: req.userId }).sort({ ts: -1 }).lean(),
   ]);
   res.json({
     cash: account?.cash ?? 0,
     watchlist: account?.watchlist ?? [],
     stocks: getMarket().map(serStock),
     holdings: holdings.map((h) => ({ symbol: h.symbol, qty: h.qty, avg: h.avg })),
-    orders: orders.map((o) => serOrder({ ...o, orderId: o.orderId, ts: o.ts })),
-    txns: txns.map((t) => serTxn({ ...t, txnId: t.txnId, ts: t.ts })),
+    orders: orders.map(serOrder),
+    txns: txns.map(serTxn),
     market: marketStatus(),
   });
 });
 
 // ---- GET /api/prices : lightweight live feed the client polls (~1.4s) ----
+// Prices are shared market data, identical for everyone.
 router.get('/prices', (_req, res) => {
   res.json(
     getMarket().map((s) => ({
@@ -93,16 +90,17 @@ router.post('/orders', async (req, res) => {
   const px = type === 'limit' ? Number(limit) || 0 : s.price;
   if (type === 'limit' && px <= 0) return res.status(400).json({ error: 'Enter a limit price.' });
 
-  const account = await Account.findOne();
+  const account = await Account.findOne({ userId: req.userId });
   if (side === 'buy' && qty * px > account.cash)
     return res.status(400).json({ error: 'Insufficient balance — add funds to place this order.' });
-  const hold = await Holding.findOne({ symbol });
+  const hold = await Holding.findOne({ userId: req.userId, symbol });
   if (side === 'sell' && (!hold || hold.qty < qty))
     return res.status(400).json({ error: `Insufficient holdings — you hold ${hold ? hold.qty : 0} shares of ${symbol}.` });
 
   const executed = type === 'market';
   const orderId = await nextId(Order, 'orderId', 'ORD', 1047);
   const doc = {
+    userId: req.userId,
     orderId,
     ts: new Date(),
     symbol,
@@ -115,17 +113,17 @@ router.post('/orders', async (req, res) => {
   };
 
   if (executed) {
-    const r = await applyTrade(symbol, side, qty, px);
+    const r = await applyTrade(req.userId, symbol, side, qty, px);
     if (!r.ok) return res.status(400).json({ error: `${r.error}.` });
   }
   await Order.create(doc);
 
-  res.json({ ok: true, order: serOrder({ ...doc, ts: doc.ts }), executed });
+  res.json({ ok: true, order: serOrder(doc), executed });
 });
 
-// ---- POST /api/orders/:id/cancel : cancel a pending order ----
+// ---- POST /api/orders/:id/cancel : cancel a pending order (owned by the user) ----
 router.post('/orders/:id/cancel', async (req, res) => {
-  const o = await Order.findOne({ orderId: req.params.id });
+  const o = await Order.findOne({ orderId: req.params.id, userId: req.userId });
   if (!o) return res.status(404).json({ error: 'Order not found.' });
   if (o.status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be cancelled.' });
   o.status = 'cancelled';
@@ -140,7 +138,7 @@ router.post('/wallet', async (req, res) => {
   const amt = Math.floor(Number(rawAmount) || 0);
   if (amt < 100) return res.status(400).json({ error: 'Enter an amount of at least ₹100.' });
 
-  const account = await Account.findOne();
+  const account = await Account.findOne({ userId: req.userId });
   if (mode === 'withdraw' && amt > account.cash)
     return res.status(400).json({ error: 'Amount exceeds your wallet balance.' });
 
@@ -150,6 +148,7 @@ router.post('/wallet', async (req, res) => {
 
   const txnId = await nextId(Transaction, 'txnId', 'TXN', 3021);
   const txn = await Transaction.create({
+    userId: req.userId,
     txnId,
     ts: new Date(),
     type: mode === 'add' ? 'Added funds' : 'Withdrawal',
@@ -166,7 +165,7 @@ router.post('/wallet', async (req, res) => {
 router.post('/watchlist', async (req, res) => {
   const { symbol } = req.body || {};
   if (!getStock(symbol)) return res.status(400).json({ error: 'Unknown stock.' });
-  const account = await Account.findOne();
+  const account = await Account.findOne({ userId: req.userId });
   if (!account.watchlist.includes(symbol)) {
     account.watchlist.push(symbol);
     await account.save();
@@ -175,7 +174,7 @@ router.post('/watchlist', async (req, res) => {
 });
 
 router.delete('/watchlist/:symbol', async (req, res) => {
-  const account = await Account.findOne();
+  const account = await Account.findOne({ userId: req.userId });
   account.watchlist = account.watchlist.filter((s) => s !== req.params.symbol);
   await account.save();
   res.json({ ok: true, watchlist: account.watchlist });

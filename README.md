@@ -52,6 +52,16 @@ npm run dev               # http://localhost:5173
 
 Open http://localhost:5173. The client proxies `/api` to the backend on :4000.
 
+### Accounts
+The app requires sign-in. Either **sign up** (new accounts start with ₹1,00,000
+in virtual funds) or use the seeded **demo account**:
+
+- **Email:** `demo@crest.app`
+- **Password:** `demo123`
+
+Each user has their own isolated wallet, holdings, orders and watchlist; stock
+prices are shared market data.
+
 ## How it works
 - **Prices** live in memory on the server (`market.js`) and re-price every
   `TICK_MS` (1400ms) with a slight upward bias, exactly like the design
@@ -68,6 +78,9 @@ Open http://localhost:5173. The client proxies `/api` to the backend on :4000.
 ## API
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/api/auth/register` | create an account, returns a JWT |
+| POST | `/api/auth/login` | sign in, returns a JWT |
+| GET | `/api/auth/me` | current user (requires token) |
 | GET | `/api/state` | full snapshot to hydrate the app |
 | GET | `/api/prices` | lightweight live price feed (polled) |
 | POST | `/api/orders` | place a market/limit order |
@@ -75,3 +88,7 @@ Open http://localhost:5173. The client proxies `/api` to the backend on :4000.
 | POST | `/api/wallet` | add / withdraw funds |
 | POST | `/api/watchlist` | add a symbol |
 | DELETE | `/api/watchlist/:symbol` | remove a symbol |
+
+Every endpoint except `/api/auth/register` and `/api/auth/login` requires an
+`Authorization: Bearer <token>` header; data endpoints act only on the signed-in
+user's records (`/api/prices` returns the shared market feed).

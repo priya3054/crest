@@ -68,7 +68,7 @@ async function processLimitOrders() {
     if (!s) continue;
     const crosses = o.side === 'buy' ? s.price <= o.limit : s.price >= o.limit;
     if (!crosses) continue;
-    const res = await applyTrade(o.symbol, o.side, o.qty, o.limit);
+    const res = await applyTrade(o.userId, o.symbol, o.side, o.qty, o.limit);
     if (res.ok) {
       o.status = 'executed';
       o.price = o.limit;

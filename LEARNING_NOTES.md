@@ -68,3 +68,55 @@ only; blue is for primary actions and active nav.
 **Verified working end-to-end:** live ticking prices, dashboard/portfolio P&L,
 a market buy that debited the wallet and re-weighted the average, order book,
 and the order-success receipt.
+
+---
+
+## Phase 2 — Auth & multi-user
+
+The app went from one shared wallet to real accounts, each with isolated money,
+holdings, orders and watchlist.
+
+### Passwords are never stored — only hashes
+`server/src/auth.js` uses **bcrypt** to turn a password into a one-way hash
+(`hashPassword`). On login we `verifyPassword` by re-hashing the attempt and
+comparing. Even someone with full database access can't read anyone's password.
+
+### JWT — how the server knows who you are
+HTTP is stateless: each request arrives with no memory of the last. After login
+the server hands back a **JSON Web Token** — a signed string encoding your user
+id. The browser stores it and sends it on every request as
+`Authorization: Bearer <token>`. `requireAuth` (`server/src/middleware.js`)
+verifies the signature and sets `req.userId`. Because it's *signed* with
+`JWT_SECRET`, nobody can forge one without the secret.
+
+### Scoping every query to the user
+This is the heart of multi-user: **every** database read/write now filters by
+`userId` — `Account.findOne({ userId })`, `Holding.find({ userId })`, and so on.
+`applyTrade` takes a `userId` too. Miss one filter and users would see or move
+each other's money, so the rule is: no query touches Account/Holding/Order/
+Transaction without a `userId`. Holdings use a **compound unique index**
+`{ userId, symbol }` so each user has one holding per stock, but two users can
+both hold RELIANCE independently.
+
+### What's shared vs. per-user
+Stocks and live prices are **shared market data** (everyone sees the same
+prices — that's what a market is). Cash, holdings, orders, transactions and
+watchlist are **per-user**. The `/api/prices` feed is the same for all;
+`/api/state` is filtered to you.
+
+### Frontend: gating the app behind auth
+`client/src/auth.jsx` is a Context that holds the token (in `localStorage`) and
+the current user. `main.jsx` renders one of three things: a loader while it
+validates a saved token, the login/signup screen when logged out, or the full
+app when logged in. The store + polling only mount **after** login, so no data
+is fetched without a token. A `401` from any API call auto-logs-you-out.
+
+### A security note (localStorage vs. cookies)
+We keep the JWT in `localStorage` — simple and easy to reason about, fine for a
+no-real-money learning app. In a production app handling real value you'd
+usually prefer an **httpOnly cookie** (JavaScript can't read it, which blocks a
+class of XSS token theft). Worth knowing the trade-off.
+
+**Verified end-to-end:** demo login, wrong-password rejection, new-user signup
+with ₹1,00,000 starter funds and an isolated empty portfolio, duplicate-email
+rejection, logout, and full data isolation between two accounts.
