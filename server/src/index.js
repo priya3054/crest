@@ -40,6 +40,7 @@ async function main() {
   }
 
   const app = express();
+  app.set('trust proxy', 1); // real client IP from the load balancer (X-Forwarded-For)
   app.use(cors({ origin: process.env.CLIENT_ORIGIN || true }));
   app.use(express.json());
   app.get('/health', (_req, res) => res.json({ ok: true, role: ROLE }));

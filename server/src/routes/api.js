@@ -3,6 +3,7 @@ import { Account, Holding, Order, Transaction } from '../models/index.js';
 import { getMarket, getStock, marketStatus } from '../market/market.js';
 import { applyTrade } from '../services/trade.js';
 import { requireAuth } from '../middleware/auth.js';
+import { orderLimiter } from '../middleware/rateLimit.js';
 import { nextId } from '../utils/ids.js';
 
 const router = Router();
@@ -79,7 +80,7 @@ router.get('/prices', (_req, res) => {
 });
 
 // ---- POST /api/orders : place a market or limit order ----
-router.post('/orders', async (req, res) => {
+router.post('/orders', orderLimiter, async (req, res) => {
   const { symbol, side, type, qty: rawQty, limit } = req.body || {};
   const s = getStock(symbol);
   if (!s) return res.status(400).json({ error: 'Unknown stock.' });

@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { User } from '../models/index.js';
 import { hashPassword, verifyPassword, signToken, provisionUserAccount } from '../services/auth.js';
 import { requireAuth } from '../middleware/auth.js';
+import { authLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
 const publicUser = (u) => ({ id: String(u._id), email: u.email, name: u.name });
 
 // POST /api/auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const { name, email, password } = req.body || {};
   if (!name || !name.trim()) return res.status(400).json({ error: 'Enter your name.' });
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email.' });
@@ -28,7 +29,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Enter your email and password.' });
 
