@@ -9,14 +9,17 @@ export const useUI = () => useContext(UICtx);
 export function UIProvider({ children }) {
   const [order, setOrder] = useState(null); // { symbol?, side? }
   const [funds, setFunds] = useState(null); // { mode }
+  const [navOpen, setNavOpen] = useState(false); // mobile sidebar drawer
 
   const openOrder = useCallback((symbol, side = 'buy') => setOrder({ symbol, side }), []);
   const openFunds = useCallback((mode = 'add') => setFunds({ mode }), []);
   const closeOrder = useCallback(() => setOrder(null), []);
   const closeFunds = useCallback(() => setFunds(null), []);
+  const toggleNav = useCallback(() => setNavOpen((v) => !v), []);
+  const closeNav = useCallback(() => setNavOpen(false), []);
 
   return (
-    <UICtx.Provider value={{ openOrder, openFunds }}>
+    <UICtx.Provider value={{ openOrder, openFunds, navOpen, toggleNav, closeNav }}>
       {children}
       {order && <OrderModal initial={order} onClose={closeOrder} />}
       {funds && <FundsModal mode={funds.mode} onClose={closeFunds} />}

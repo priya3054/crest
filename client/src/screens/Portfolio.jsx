@@ -40,7 +40,7 @@ export function Portfolio() {
       <TopBar title="Portfolio" />
       <div className="page">
         <div className="card" style={{ marginBottom: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, rowGap: 20 }}>
+          <div className="grid-summary">
             <StatBlock label="INVESTED" value={inr(pf.invested)} />
             <StatBlock label="CURRENT VALUE" value={inr(pf.curVal)} />
             <StatBlock
@@ -75,7 +75,8 @@ export function Portfolio() {
               </button>
             </div>
           ) : (
-            <>
+            <div className="table-scroll">
+             <div className="table-min">
               <div className="table-head" style={{ display: 'grid', gridTemplateColumns: COLS, gap: 12, padding: '14px 0 10px' }}>
                 <div>STOCK</div>
                 <div style={{ textAlign: 'right' }}>QTY</div>
@@ -105,7 +106,8 @@ export function Portfolio() {
                   </div>
                 </div>
               ))}
-            </>
+             </div>
+            </div>
           )}
         </div>
       </div>

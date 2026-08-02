@@ -51,15 +51,15 @@ export function StoreProvider({ children }) {
 
     const poll = async () => {
       try {
-        const prices = await api.getPrices();
+        const feed = await api.getPrices();
         if (!alive) return;
         setState((prev) => {
           const stocks = { ...prev.stocks };
-          for (const p of prices) {
+          for (const p of feed.stocks) {
             const cur = stocks[p.symbol];
             if (cur) stocks[p.symbol] = { ...cur, price: p.price, prevClose: p.prevClose, hist: p.hist, flash: p.flash };
           }
-          return { ...prev, stocks };
+          return { ...prev, stocks, market: { ...prev.market, open: feed.open } };
         });
         clearTimeout(flashTimer.current);
         flashTimer.current = setTimeout(() => {

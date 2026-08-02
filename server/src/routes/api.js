@@ -63,17 +63,19 @@ router.get('/state', async (req, res) => {
 });
 
 // ---- GET /api/prices : lightweight live feed the client polls (~1.4s) ----
-// Prices are shared market data, identical for everyone.
+// Prices are shared market data, identical for everyone. Includes the live
+// open/closed flag so the client can flip the LIVE badge mid-session.
 router.get('/prices', (_req, res) => {
-  res.json(
-    getMarket().map((s) => ({
+  res.json({
+    open: marketStatus().open,
+    stocks: getMarket().map((s) => ({
       symbol: s.symbol,
       price: s.price,
       prevClose: s.prevClose,
       hist: s.hist,
       flash: s.flash,
-    }))
-  );
+    })),
+  });
 });
 
 // ---- POST /api/orders : place a market or limit order ----

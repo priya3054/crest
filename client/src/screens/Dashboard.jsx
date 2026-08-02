@@ -57,7 +57,7 @@ export function Dashboard() {
         </div>
 
         {/* two-column grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.55fr minmax(300px,1fr)', gap: 14, marginTop: 14 }}>
+        <div className="grid-main" style={{ marginTop: 14 }}>
           {/* watchlist */}
           <div className="card" style={{ padding: '18px 8px 10px 20px' }}>
             <div className="card-head" style={{ paddingRight: 12 }}>

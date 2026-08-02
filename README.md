@@ -74,6 +74,11 @@ prices are shared market data.
 - **Limit orders** stay pending and auto-fill when price crosses the limit
   (buy: price ≤ limit, sell: price ≥ limit), re-checked every tick.
 - **Wallet** add/withdraw is a simulated Razorpay flow (no real money moves).
+- **Market hours:** with `MARKET_HOURS=auto` the sim follows real NSE hours
+  (Mon–Fri 09:15–15:30 IST) — ticking pauses and the badge shows CLOSED outside
+  them. Set `MARKET_HOURS=always` to keep it live around the clock for demos.
+- **Responsive:** works from phones to desktop — the sidebar becomes a drawer on
+  narrow screens and layouts restack.
 
 ## API
 | Method | Path | Purpose |

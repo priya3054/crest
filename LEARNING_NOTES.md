@@ -149,3 +149,37 @@ tick-flash; order book depth bars + spread; per-filter empty states; the full
 Razorpay-sim funds flow (form→processing→success). Known trade-offs left as-is on
 purpose: prices carry the spec's slight upward bias (faithful to the prototype),
 and the JWT lives in localStorage (simple; a cookie would be stricter).
+
+---
+
+## Phase 3 — Market hours & responsive design
+
+### Real NSE market hours
+The sim now knows when the market is open: **Mon–Fri, 09:15–15:30 IST**. The tick
+loop pauses outside those hours (prices freeze at the last value, limit orders
+stop filling) and the sidebar badge flips to **CLOSED** with a helpful caption.
+Two ideas worth remembering:
+- **Timezone-safe:** we compute "now in IST" from UTC (`getTime()` +
+  `getTimezoneOffset()` + 5.5h) so it's correct no matter what timezone the
+  server runs in.
+- **`MARKET_HOURS` env** has three modes: `auto` (real hours — the shipped
+  default), `always` (open 24/7, handy for demos), `closed`. The live open/closed
+  flag rides along in the `/api/prices` poll so the badge flips mid-session.
+
+### Responsive layout (mobile → desktop)
+The desktop-only layout now adapts down to phones:
+- **The key trick:** the fixed multi-column grids were inline styles, which media
+  queries *can't* override. Moving them to CSS classes (`.grid-main`,
+  `.grid-detail`, `.grid-summary`) let breakpoints restack them to one column.
+- **Off-canvas sidebar:** below 900px the sidebar becomes a fixed drawer
+  (`translateX(-100%)`), a ☰ button in the top bar toggles it, and a scrim sits
+  behind it. Nav state lives in the UI context so the top bar and sidebar share
+  it. Tapping a link or the scrim closes it.
+- **Wide tables scroll inside their own container** (`.table-scroll`) instead of
+  pushing the whole page sideways — the body never scrolls horizontally.
+- **The chart measures its own width** (ResizeObserver) so it fills whatever
+  column it lands in, on any screen.
+
+**Verified:** CLOSED badge on a real Saturday + LIVE ticking when forced open;
+drawer open/close with scrim; every screen stacks with zero horizontal overflow
+at 375px; desktop unchanged (sidebar sticky, hamburger hidden, grids multi-col).

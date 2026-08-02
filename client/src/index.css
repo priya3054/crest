@@ -317,3 +317,44 @@ input, select { font-family: var(--ui); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #1c222e; border-radius: 6px; border: 2px solid var(--bg-app); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- layout grids (class-based so media queries can restack them) -------- */
+.grid-main { display: grid; grid-template-columns: 1.55fr minmax(300px, 1fr); gap: 14px; }
+.grid-detail { display: grid; grid-template-columns: 1.7fr minmax(290px, 1fr); gap: 14px; align-items: start; }
+.grid-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; row-gap: 20px; }
+.table-scroll { overflow-x: auto; }
+.table-min { min-width: 640px; }
+
+/* ---- mobile nav (hidden on desktop) ------------------------------------- */
+.hamburger {
+  display: none; background: none; border: none; color: var(--text-secondary);
+  font-size: 20px; line-height: 1; padding: 6px 8px; border-radius: 8px;
+}
+.hamburger:hover { color: var(--text-primary); }
+.nav-scrim { display: none; }
+
+/* ---- responsive --------------------------------------------------------- */
+@media (max-width: 900px) {
+  .grid-main, .grid-detail { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh; width: 248px; z-index: 60;
+    transform: translateX(-100%); transition: transform 0.25s ease;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .nav-scrim {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: rgba(4, 6, 10, 0.6); backdrop-filter: blur(2px);
+  }
+  .hamburger { display: inline-flex; align-items: center; }
+  .page { padding: 20px 16px 60px; }
+  .topbar { padding: 0 14px; }
+}
+
+@media (max-width: 560px) {
+  .grid-summary { grid-template-columns: repeat(2, 1fr); }
+  .topbar-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; }
+  .wallet-pill .label { display: none; }
+  .btn-primary { padding: 9px 12px; }
+  .page { padding: 18px 12px 56px; }
+}

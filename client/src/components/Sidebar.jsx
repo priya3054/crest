@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Logo } from './Logo.jsx';
 import { useStore } from '../store.jsx';
 import { useAuth } from '../auth.jsx';
+import { useUI } from '../ui.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
@@ -17,19 +18,22 @@ const initials = (name) =>
 export function Sidebar() {
   const { market } = useStore();
   const { user, logout } = useAuth();
+  const { navOpen, closeNav } = useUI();
   const open = market?.open ?? true;
 
   return (
-    <aside className="sidebar">
-      <Logo />
-      <nav className="nav">
-        {NAV.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
-            <span className="nav-diamond" />
-            {n.label}
-          </NavLink>
-        ))}
-      </nav>
+    <>
+      {navOpen && <div className="nav-scrim" onClick={closeNav} />}
+      <aside className={'sidebar' + (navOpen ? ' open' : '')}>
+        <Logo />
+        <nav className="nav">
+          {NAV.map((n) => (
+            <NavLink key={n.to} to={n.to} end={n.end} onClick={closeNav} className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
+              <span className="nav-diamond" />
+              {n.label}
+            </NavLink>
+          ))}
+        </nav>
 
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* user chip + logout */}
@@ -66,9 +70,12 @@ export function Sidebar() {
             <span className={'live-dot' + (open ? ' pulse' : ' closed')} />
             <span className={'live-label' + (open ? '' : ' closed')}>{open ? 'LIVE' : 'CLOSED'}</span>
           </div>
-          <div className="live-caption">Simulated market feed. Virtual funds only.</div>
+          <div className="live-caption">
+            {open ? 'Simulated market feed. Virtual funds only.' : 'Market closed · trades 09:15–15:30 IST, Mon–Fri.'}
+          </div>
         </div>
       </div>
     </aside>
+    </>
   );
 }

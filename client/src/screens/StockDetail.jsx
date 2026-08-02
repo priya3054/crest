@@ -100,7 +100,7 @@ export function StockDetail() {
         </div>
 
         {/* grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.7fr minmax(290px,1fr)', gap: 14, alignItems: 'start' }}>
+        <div className="grid-detail">
           {/* price chart */}
           <div className="card">
             <div className="card-head" style={{ marginBottom: 14 }}>
