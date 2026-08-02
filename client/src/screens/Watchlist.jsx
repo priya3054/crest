@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store.jsx';
+import { useStore } from '../context/store.jsx';
 import { TopBar } from '../components/TopBar.jsx';
 import { Sparkline } from '../components/Sparkline.jsx';
 import { ChangeText } from '../components/bits.jsx';
-import { inr } from '../format.js';
-import { trendColor, flashClass } from '../selectors.js';
+import { inr } from '../lib/format.js';
+import { trendColor, flashClass } from '../lib/selectors.js';
 
 export function Watchlist() {
   const { stocks, watchlist, addWatch, removeWatch } = useStore();

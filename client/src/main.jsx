@@ -3,9 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
-import { StoreProvider } from './store.jsx'
-import { UIProvider } from './ui.jsx'
-import { AuthProvider, useAuth } from './auth.jsx'
+import { StoreProvider } from './context/store.jsx'
+import { UIProvider } from './context/ui.jsx'
+import { AuthProvider, useAuth } from './context/auth.jsx'
 import { AuthScreen } from './screens/AuthScreen.jsx'
 
 // Decide what to render based on auth: a brief loader while we check any saved

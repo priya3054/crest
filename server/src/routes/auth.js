@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { User } from '../models/index.js';
-import { hashPassword, verifyPassword, signToken, provisionUserAccount } from '../auth.js';
-import { requireAuth } from '../middleware.js';
+import { hashPassword, verifyPassword, signToken, provisionUserAccount } from '../services/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 

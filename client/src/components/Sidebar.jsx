@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import { Logo } from './Logo.jsx';
-import { useStore } from '../store.jsx';
-import { useAuth } from '../auth.jsx';
-import { useUI } from '../ui.jsx';
+import { useStore } from '../context/store.jsx';
+import { useAuth } from '../context/auth.jsx';
+import { useUI } from '../context/ui.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },

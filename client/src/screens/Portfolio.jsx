@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store.jsx';
-import { useUI } from '../ui.jsx';
+import { useStore } from '../context/store.jsx';
+import { useUI } from '../context/ui.jsx';
 import { TopBar } from '../components/TopBar.jsx';
-import { inr, signedInr, pct } from '../format.js';
-import { portfolio, flashClass } from '../selectors.js';
+import { inr, signedInr, pct } from '../lib/format.js';
+import { portfolio, flashClass } from '../lib/selectors.js';
 
 const SORTS = [
   { key: 'value', label: 'By value' },

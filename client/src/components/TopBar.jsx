@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store.jsx';
-import { useUI } from '../ui.jsx';
-import { inr } from '../format.js';
+import { useStore } from '../context/store.jsx';
+import { useUI } from '../context/ui.jsx';
+import { inr } from '../lib/format.js';
 
 export function TopBar({ title }) {
   const { cash } = useStore();

@@ -1,8 +1,8 @@
-import { useStore } from '../store.jsx';
-import { useUI } from '../ui.jsx';
+import { useStore } from '../context/store.jsx';
+import { useUI } from '../context/ui.jsx';
 import { TopBar } from '../components/TopBar.jsx';
 import { StatusChip } from '../components/bits.jsx';
-import { inr, inr0, fdate } from '../format.js';
+import { inr, inr0, fdate } from '../lib/format.js';
 
 export function Wallet() {
   const { cash, txns } = useStore();

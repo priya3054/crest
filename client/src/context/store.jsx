@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { api } from './api';
+import { api } from '../lib/api.js';
+import { connectSocket } from '../lib/socket.js';
 
 const StoreCtx = createContext(null);
 export const useStore = () => useContext(StoreCtx);
@@ -42,46 +43,39 @@ export function StoreProvider({ children }) {
     hydrate().catch((e) => console.error('hydrate failed', e));
   }, [hydrate]);
 
-  // Live-price polling. Every tick we merge fresh prices and set a flash direction;
-  // a short timer then clears flashes to 0 so the row background fades back out.
+  // Live prices arrive over a WebSocket (pushed by the server) instead of polling.
+  // Each tick we merge fresh prices + the open flag and set a flash direction; a
+  // short timer then clears flashes so the row background fades back out.
   useEffect(() => {
     if (!state.loaded) return undefined;
-    const ms = state.market?.tickMs || 1400;
-    let alive = true;
+    const socket = connectSocket();
 
-    const poll = async () => {
-      try {
-        const feed = await api.getPrices();
-        if (!alive) return;
+    const onTick = (feed) => {
+      setState((prev) => {
+        const stocks = { ...prev.stocks };
+        for (const p of feed.stocks) {
+          const cur = stocks[p.symbol];
+          if (cur) stocks[p.symbol] = { ...cur, price: p.price, prevClose: p.prevClose, hist: p.hist, flash: p.flash };
+        }
+        return { ...prev, stocks, market: { ...prev.market, open: feed.open } };
+      });
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => {
         setState((prev) => {
           const stocks = { ...prev.stocks };
-          for (const p of feed.stocks) {
-            const cur = stocks[p.symbol];
-            if (cur) stocks[p.symbol] = { ...cur, price: p.price, prevClose: p.prevClose, hist: p.hist, flash: p.flash };
-          }
-          return { ...prev, stocks, market: { ...prev.market, open: feed.open } };
+          for (const k of Object.keys(stocks)) stocks[k] = { ...stocks[k], flash: 0 };
+          return { ...prev, stocks };
         });
-        clearTimeout(flashTimer.current);
-        flashTimer.current = setTimeout(() => {
-          if (!alive) return;
-          setState((prev) => {
-            const stocks = { ...prev.stocks };
-            for (const k of Object.keys(stocks)) stocks[k] = { ...stocks[k], flash: 0 };
-            return { ...prev, stocks };
-          });
-        }, Math.min(700, ms - 100));
-      } catch {
-        /* transient network error — next tick retries */
-      }
+      }, 700);
     };
 
-    const id = setInterval(poll, ms);
+    socket.on('tick', onTick);
     return () => {
-      alive = false;
-      clearInterval(id);
+      socket.off('tick', onTick);
+      socket.close();
       clearTimeout(flashTimer.current);
     };
-  }, [state.loaded, state.market?.tickMs]);
+  }, [state.loaded]);
 
   // ---- mutations: hit the API, then re-hydrate the snapshot ----
   const placeOrder = async (body) => {

@@ -1,4 +1,4 @@
-import { Account, Holding } from './models/index.js';
+import { Account, Holding } from '../models/index.js';
 
 const round2 = (n) => Math.round(n * 100) / 100;
 

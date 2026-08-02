@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store.jsx';
-import { inr } from '../format.js';
+import { useStore } from '../context/store.jsx';
+import { inr } from '../lib/format.js';
 
 export function OrderModal({ initial, onClose }) {
   const { stocks, cash, holdings, placeOrder } = useStore();

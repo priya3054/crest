@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { Account, Holding, Order, Transaction } from '../models/index.js';
-import { getMarket, getStock, marketStatus } from '../market.js';
-import { applyTrade } from '../trade.js';
-import { requireAuth } from '../middleware.js';
-import { nextId } from '../ids.js';
+import { getMarket, getStock, marketStatus } from '../market/market.js';
+import { applyTrade } from '../services/trade.js';
+import { requireAuth } from '../middleware/auth.js';
+import { nextId } from '../utils/ids.js';
 
 const router = Router();
 const round2 = (n) => Math.round(n * 100) / 100;

@@ -1,5 +1,5 @@
-import { signedInr, pct } from '../format.js';
-import { change, changePct, trendColor } from '../selectors.js';
+import { signedInr, pct } from '../lib/format.js';
+import { change, changePct, trendColor } from '../lib/selectors.js';
 
 // Coloured order-status pill.
 export function StatusChip({ status }) {

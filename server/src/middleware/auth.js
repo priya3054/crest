@@ -1,4 +1,4 @@
-import { verifyToken } from './auth.js';
+import { verifyToken } from '../services/auth.js';
 
 // Gate protected routes: require a valid "Authorization: Bearer <token>" header
 // and stash the user's id on req.userId for downstream handlers.

@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import { connectDB } from './db.js';
+import { connectDB } from './config/db.js';
 import { User, Account, Stock, Holding, Order, Transaction } from './models/index.js';
-import { hashPassword } from './auth.js';
+import { hashPassword } from './services/auth.js';
 
 // 12 NSE-style stocks: [symbol, name, sector, anchorPrice, baseVolume] — shared market data.
 const STOCK_DEFS = [

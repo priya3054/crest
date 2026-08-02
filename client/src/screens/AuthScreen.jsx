@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../auth.jsx';
+import { useAuth } from '../context/auth.jsx';
 import { Logo } from '../components/Logo.jsx';
 
 export function AuthScreen() {

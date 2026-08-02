@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useStore } from '../store.jsx';
-import { inr, inr0 } from '../format.js';
+import { useStore } from '../context/store.jsx';
+import { inr, inr0 } from '../lib/format.js';
 
 const QUICK = [5000, 10000, 25000];
 

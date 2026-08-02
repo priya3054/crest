@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store.jsx';
-import { useUI } from '../ui.jsx';
+import { useStore } from '../context/store.jsx';
+import { useUI } from '../context/ui.jsx';
 import { TopBar } from '../components/TopBar.jsx';
 import { Sparkline } from '../components/Sparkline.jsx';
 import { StatusChip, SideLabel, ChangeText } from '../components/bits.jsx';
-import { inr, signedInr, pct, fdate } from '../format.js';
-import { portfolio, trendColor, isUp, flashClass } from '../selectors.js';
+import { inr, signedInr, pct, fdate } from '../lib/format.js';
+import { portfolio, trendColor, isUp, flashClass } from '../lib/selectors.js';
 
 export function Dashboard() {
   const { cash, stocks, holdings, orders, watchlist } = useStore();

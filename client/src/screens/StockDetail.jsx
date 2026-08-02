@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useStore } from '../store.jsx';
-import { useUI } from '../ui.jsx';
+import { useStore } from '../context/store.jsx';
+import { useUI } from '../context/ui.jsx';
 import { TopBar } from '../components/TopBar.jsx';
 import { PriceChart } from '../components/PriceChart.jsx';
-import { inr, signedInr, pct, grouped } from '../format.js';
-import { change, changePct, isUp, trendColor, flashClass } from '../selectors.js';
+import { inr, signedInr, pct, grouped } from '../lib/format.js';
+import { change, changePct, isUp, trendColor, flashClass } from '../lib/selectors.js';
 
 const RANGES = ['1D', '1W', '1M', '1Y'];
 

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Account, Transaction } from './models/index.js';
-import { nextId } from './ids.js';
+import { Account, Transaction } from '../models/index.js';
+import { nextId } from '../utils/ids.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const STARTER_CASH = 100000; // every new account starts with ₹1,00,000 virtual funds

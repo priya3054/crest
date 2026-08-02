@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { OrderModal } from './components/OrderModal.jsx';
-import { FundsModal } from './components/FundsModal.jsx';
+import { OrderModal } from '../components/OrderModal.jsx';
+import { FundsModal } from '../components/FundsModal.jsx';
 
 const UICtx = createContext(null);
 export const useUI = () => useContext(UICtx);

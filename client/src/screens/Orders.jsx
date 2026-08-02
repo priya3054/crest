@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useStore } from '../store.jsx';
-import { useUI } from '../ui.jsx';
+import { useStore } from '../context/store.jsx';
+import { useUI } from '../context/ui.jsx';
 import { TopBar } from '../components/TopBar.jsx';
 import { StatusChip, SideLabel } from '../components/bits.jsx';
-import { inr, fdate } from '../format.js';
+import { inr, fdate } from '../lib/format.js';
 
 const FILTERS = ['all', 'pending', 'executed', 'cancelled'];
 const LABEL = { all: 'All', pending: 'Pending', executed: 'Executed', cancelled: 'Cancelled' };

@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar.jsx';
-import { useStore } from './store.jsx';
+import { useStore } from './context/store.jsx';
 import { Dashboard } from './screens/Dashboard.jsx';
 import { Watchlist } from './screens/Watchlist.jsx';
 import { Portfolio } from './screens/Portfolio.jsx';
