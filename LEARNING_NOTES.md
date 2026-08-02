@@ -183,3 +183,51 @@ The desktop-only layout now adapts down to phones:
 **Verified:** CLOSED badge on a real Saturday + LIVE ticking when forced open;
 drawer open/close with scrim; every screen stacks with zero horizontal overflow
 at 375px; desktop unchanged (sidebar sticky, hamburger hidden, grids multi-col).
+
+---
+
+## Phase 4 — System design (real-time, Redis, scaling)
+
+This is what makes Crest read as a real system, not a CRUD app. Concepts:
+
+### Push, not poll (WebSockets)
+Polling asks "any changes?" every 1.4s — wasteful and not truly live. Instead the
+**server pushes**: the client opens one **Socket.IO** connection and the server
+emits a `tick` whenever prices change. Fewer requests, instant updates.
+
+### Pub/Sub decoupling (Redis)
+If we ran two API servers each with their own price loop, users would see two
+different feeds. So one **producer** owns the sim and **publishes** each tick to a
+**Redis channel**; every **gateway** *subscribes* and re-emits to its own sockets.
+Now you can add gateways freely — they all relay the same feed. This is the
+publish/subscribe pattern, and it's the key that unlocks horizontal scaling.
+
+### Caching
+The latest snapshot is stored in Redis. A newly-connected client gets it
+immediately (a cache read) instead of waiting for the next tick or recomputing.
+
+### Rate limiting (sliding window)
+A Redis **sorted set** stores a timestamp per request; we drop entries older than
+the window and count what's left. Over the limit → `429`. Because the counter is
+in Redis, the limit holds across *all* gateways, not per-process.
+
+### Concurrency safety (the money bug most apps have)
+The naive "read balance → subtract → save" has a race: two orders both read the
+old balance and both succeed, overspending. The fix is an **atomic conditional
+update** — `findOneAndUpdate({ cash: { $gte: cost } }, { $inc: { cash: -cost } })`
+— which debits *only if* the guard still holds, in one indivisible DB operation.
+Stress-tested with 40 concurrent buys: exactly the affordable number filled and
+cash never went negative.
+
+### Idempotency
+A dropped response makes clients retry — and a retried "buy" could fill twice. An
+**Idempotency-Key** fixes this: the first request runs and its result is cached in
+Redis; any repeat with the same key replays that result instead of trading again.
+
+### Horizontal scaling (Nginx + Docker Compose)
+A `ROLE` env splits the process into `producer` (one) and `gateway` (many).
+`docker-compose` runs a producer, **two gateways**, Redis, Mongo, and an **Nginx**
+front door that serves the React build, **round-robins REST** across gateways and
+**pins each WebSocket** to one (`ip_hash`). An `X-Served-By` header proves requests
+land on different instances. Everything above (pub/sub, shared cache, shared rate
+limits) is exactly what lets those two gateways behave as one system.
