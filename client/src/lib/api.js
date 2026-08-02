@@ -12,12 +12,13 @@ export const setAuthErrorHandler = (fn) => {
   onAuthError = fn;
 };
 
-async function req(path, options = {}) {
+async function req(path, { headers, ...options } = {}) {
   const token = getToken();
   const res = await fetch('/api' + path, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
     },
     ...options,
   });
@@ -35,7 +36,12 @@ export const api = {
   // app data
   getState: () => req('/state'),
   getPrices: () => req('/prices'),
-  placeOrder: (body) => req('/orders', { method: 'POST', body: JSON.stringify(body) }),
+  placeOrder: (body, idempotencyKey) =>
+    req('/orders', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+    }),
   cancelOrder: (id) => req(`/orders/${id}/cancel`, { method: 'POST' }),
   wallet: (body) => req('/wallet', { method: 'POST', body: JSON.stringify(body) }),
   addWatch: (symbol) => req('/watchlist', { method: 'POST', body: JSON.stringify({ symbol }) }),

@@ -64,9 +64,18 @@ const transactionSchema = new Schema({
 });
 transactionSchema.index({ userId: 1, ts: -1 });
 
+// Atomic sequence counters (one doc per sequence, e.g. _id: 'orderId').
+// findOneAndUpdate($inc) is atomic, so IDs never collide even under concurrency —
+// unlike scanning for the current max.
+const counterSchema = new Schema({
+  _id: { type: String, required: true },
+  seq: { type: Number, required: true, default: 0 },
+});
+
 export const User = model('User', userSchema);
 export const Account = model('Account', accountSchema);
 export const Stock = model('Stock', stockSchema);
 export const Holding = model('Holding', holdingSchema);
 export const Order = model('Order', orderSchema);
 export const Transaction = model('Transaction', transactionSchema);
+export const Counter = model('Counter', counterSchema);

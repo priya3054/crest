@@ -23,7 +23,7 @@ export async function provisionUserAccount(userId) {
     cash: STARTER_CASH,
     watchlist: ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK'],
   });
-  const txnId = await nextId(Transaction, 'txnId', 'TXN', 3000);
+  const txnId = await nextId('txnId', 'TXN');
   await Transaction.create({
     userId,
     txnId,

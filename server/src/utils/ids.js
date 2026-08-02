@@ -1,10 +1,13 @@
-// Generate the next sequential human-readable id (ORD-1048, TXN-3022) by scanning
-// the highest existing numeric suffix. IDs are globally unique across users.
-export async function nextId(Model, field, prefix, floor) {
-  const docs = await Model.find({}, field);
-  const max = docs.reduce((m, d) => {
-    const n = parseInt(String(d[field]).split('-')[1], 10);
-    return Number.isNaN(n) ? m : Math.max(m, n);
-  }, floor);
-  return `${prefix}-${max + 1}`;
+import { Counter } from '../models/index.js';
+
+// Atomically allocate the next id in a named sequence, e.g. nextId('orderId','ORD')
+// -> "ORD-1048". findOneAndUpdate($inc) is a single atomic op, so two concurrent
+// requests can never receive the same number (the old max-scan approach could).
+export async function nextId(name, prefix) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: name },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return `${prefix}-${counter.seq}`;
 }

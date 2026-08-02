@@ -4,6 +4,7 @@ import { getMarket, getStock, marketStatus } from '../market/market.js';
 import { applyTrade } from '../services/trade.js';
 import { requireAuth } from '../middleware/auth.js';
 import { orderLimiter } from '../middleware/rateLimit.js';
+import { idempotency } from '../middleware/idempotency.js';
 import { nextId } from '../utils/ids.js';
 
 const router = Router();
@@ -80,7 +81,7 @@ router.get('/prices', (_req, res) => {
 });
 
 // ---- POST /api/orders : place a market or limit order ----
-router.post('/orders', orderLimiter, async (req, res) => {
+router.post('/orders', orderLimiter, idempotency, async (req, res) => {
   const { symbol, side, type, qty: rawQty, limit } = req.body || {};
   const s = getStock(symbol);
   if (!s) return res.status(400).json({ error: 'Unknown stock.' });
@@ -101,7 +102,7 @@ router.post('/orders', orderLimiter, async (req, res) => {
     return res.status(400).json({ error: `Insufficient holdings — you hold ${hold ? hold.qty : 0} shares of ${symbol}.` });
 
   const executed = type === 'market';
-  const orderId = await nextId(Order, 'orderId', 'ORD', 1047);
+  const orderId = await nextId('orderId', 'ORD');
   const doc = {
     userId: req.userId,
     orderId,
@@ -149,7 +150,7 @@ router.post('/wallet', async (req, res) => {
   account.cash = round2(account.cash + dir * amt);
   await account.save();
 
-  const txnId = await nextId(Transaction, 'txnId', 'TXN', 3021);
+  const txnId = await nextId('txnId', 'TXN');
   const txn = await Transaction.create({
     userId: req.userId,
     txnId,

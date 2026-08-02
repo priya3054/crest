@@ -78,8 +78,8 @@ export function StoreProvider({ children }) {
   }, [state.loaded]);
 
   // ---- mutations: hit the API, then re-hydrate the snapshot ----
-  const placeOrder = async (body) => {
-    const r = await api.placeOrder(body);
+  const placeOrder = async (body, idempotencyKey) => {
+    const r = await api.placeOrder(body, idempotencyKey);
     await hydrate();
     return r;
   };

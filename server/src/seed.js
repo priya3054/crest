@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import { connectDB } from './config/db.js';
-import { User, Account, Stock, Holding, Order, Transaction } from './models/index.js';
+import { User, Account, Stock, Holding, Order, Transaction, Counter } from './models/index.js';
 import { hashPassword } from './services/auth.js';
 
 // 12 NSE-style stocks: [symbol, name, sector, anchorPrice, baseVolume] — shared market data.
@@ -69,6 +69,13 @@ async function seed() {
     { userId, txnId: 'TXN-3021', ts: new Date(now - 4 * H), type: 'Added funds', via: 'Razorpay', amount: 25000, dir: 1, status: 'completed' },
     { userId, txnId: 'TXN-3014', ts: new Date(now - 2 * D), type: 'Withdrawal', via: 'Razorpay', amount: 8000, dir: -1, status: 'completed' },
     { userId, txnId: 'TXN-3002', ts: new Date(now - 6 * D), type: 'Starter credit', via: 'Crest', amount: 100000, dir: 1, status: 'completed' },
+  ]);
+
+  // Seed the id counters to the highest values used above, so the next allocated
+  // ids continue the sequence (ORD-1048, TXN-3022, …).
+  await Counter.insertMany([
+    { _id: 'orderId', seq: 1047 },
+    { _id: 'txnId', seq: 3021 },
   ]);
 
   console.log('[seed] done — 12 stocks + demo user (demo@crest.app / demo123)');

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/store.jsx';
 import { inr } from '../lib/format.js';
@@ -16,6 +16,8 @@ export function OrderModal({ initial, onClose }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null); // filled receipt on success
+  // One idempotency key per order attempt so a retry can't place a duplicate.
+  const idemKey = useRef(crypto.randomUUID());
 
   const s = stocks[symbol];
   const nQty = Math.floor(Number(qty) || 0);
@@ -27,7 +29,10 @@ export function OrderModal({ initial, onClose }) {
     setError('');
     setBusy(true);
     try {
-      const r = await placeOrder({ symbol, side, type, qty: nQty, limit: type === 'limit' ? Number(limit) : undefined });
+      const r = await placeOrder(
+        { symbol, side, type, qty: nQty, limit: type === 'limit' ? Number(limit) : undefined },
+        idemKey.current
+      );
       setDone({ ...r.order, executed: r.executed });
     } catch (e) {
       setError(e.message);
