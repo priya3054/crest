@@ -1,0 +1,76 @@
+# Load-balanced Crest deployment:
+#
+#   browser ─▶ nginx ─┬─▶ gateway1 ┐
+#                     └─▶ gateway2 ┘─ subscribe ─▶ redis ◀─ publish ─ producer (the one price source)
+#                                     gateways + producer ─▶ mongo (durable state)
+#
+# One producer runs the simulation and publishes ticks to Redis. Two stateless
+# gateways serve the API + WebSockets and each fan the ticks out to their clients.
+# Nginx serves the React build and load-balances across the gateways.
+
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+
+  # One-shot: load demo data, then exit. Other services wait for it to finish.
+  seed:
+    build: ./server
+    command: node src/seed.js
+    environment:
+      MONGO_URI: mongodb://mongo:27017/crest
+      JWT_SECRET: ${JWT_SECRET:-compose-demo-secret-change-me}
+    depends_on:
+      mongo:
+        condition: service_started
+    restart: "no"
+
+  # The single price producer — ticks the sim and publishes to Redis.
+  producer:
+    build: ./server
+    environment:
+      ROLE: producer
+      MONGO_URI: mongodb://mongo:27017/crest
+      REDIS_URL: redis://redis:6379
+      MARKET_HOURS: always
+      JWT_SECRET: ${JWT_SECRET:-compose-demo-secret-change-me}
+    depends_on:
+      redis:
+        condition: service_started
+      seed:
+        condition: service_completed_successfully
+
+  # Gateway 1 of 2 — API + WebSocket tier. All shared settings live here and
+  # gateway2 inherits them via a YAML anchor.
+  gateway1: &gateway
+    build: ./server
+    environment:
+      ROLE: gateway
+      MONGO_URI: mongodb://mongo:27017/crest
+      REDIS_URL: redis://redis:6379
+      CLIENT_ORIGIN: http://localhost:8080
+      JWT_SECRET: ${JWT_SECRET:-compose-demo-secret-change-me}
+    depends_on:
+      redis:
+        condition: service_started
+      seed:
+        condition: service_completed_successfully
+
+  gateway2:
+    <<: *gateway
+
+  # Public entrypoint: serves the client build + load-balances the gateways.
+  nginx:
+    build: ./client
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway1
+      - gateway2
+
+volumes:
+  mongo-data:

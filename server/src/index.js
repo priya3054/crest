@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import http from 'http';
+import os from 'os';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
@@ -43,7 +44,12 @@ async function main() {
   app.set('trust proxy', 1); // real client IP from the load balancer (X-Forwarded-For)
   app.use(cors({ origin: process.env.CLIENT_ORIGIN || true }));
   app.use(express.json());
-  app.get('/health', (_req, res) => res.json({ ok: true, role: ROLE }));
+  // Stamp which instance served the request — makes load balancing observable.
+  app.use((_req, res, next) => {
+    res.set('X-Served-By', os.hostname());
+    next();
+  });
+  app.get('/health', (_req, res) => res.json({ ok: true, role: ROLE, host: os.hostname() }));
   if (isGateway) {
     app.use('/api/auth', authRouter);
     app.use('/api', apiRouter);
