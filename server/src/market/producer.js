@@ -1,4 +1,4 @@
-import { Order } from '../models/index.js';
+import { Order } from '../models/Order.js';
 import { applyTrade } from '../services/trade.js';
 import { applyTick, snapshot, isMarketOpen, marketStatus, TICK_MS } from './market.js';
 import { pub, redis, CHANNEL_TICKS, KEY_SNAPSHOT } from '../config/redis.js';

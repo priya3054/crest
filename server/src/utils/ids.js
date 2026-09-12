@@ -1,4 +1,4 @@
-import { Counter } from '../models/index.js';
+import { Counter } from '../models/Counter.js';
 
 // Atomically allocate the next id in a named sequence, e.g. nextId('orderId','ORD')
 // -> "ORD-1048". findOneAndUpdate($inc) is a single atomic op, so two concurrent

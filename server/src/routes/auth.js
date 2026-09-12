@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { User } from '../models/index.js';
+import { User } from '../models/User.js';
 import { hashPassword, verifyPassword, signToken, provisionUserAccount } from '../services/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { authLimiter } from '../middleware/rateLimit.js';

@@ -5,7 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
 import { redis, KEY_SNAPSHOT } from './config/redis.js';
-import { Stock } from './models/index.js';
+import { Stock } from './models/Stock.js';
 import { hydrateMarket, setSnapshot } from './market/market.js';
 import { startProducer } from './market/producer.js';
 import { initRealtime } from './market/realtime.js';

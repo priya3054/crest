@@ -1,5 +1,8 @@
 import { Router } from 'express';
-import { Account, Holding, Order, Transaction } from '../models/index.js';
+import { Account } from '../models/Account.js';
+import { Holding } from '../models/Holding.js';
+import { Order } from '../models/Order.js';
+import { Transaction } from '../models/Transaction.js';
 import { getMarket, getStock, marketStatus } from '../market/market.js';
 import { applyTrade } from '../services/trade.js';
 import { requireAuth } from '../middleware/auth.js';

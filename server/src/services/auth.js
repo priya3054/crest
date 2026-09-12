@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Account, Transaction } from '../models/index.js';
+import { Account } from '../models/Account.js';
+import { Transaction } from '../models/Transaction.js';
 import { nextId } from '../utils/ids.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
