@@ -35,7 +35,6 @@ export const api = {
   me: () => req('/auth/me'),
   // app data
   getState: () => req('/state'),
-  getPrices: () => req('/prices'),
   placeOrder: (body, idempotencyKey) =>
     req('/orders', {
       method: 'POST',

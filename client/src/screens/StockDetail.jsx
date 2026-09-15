@@ -21,7 +21,8 @@ function seeded(str) {
 
 export function StockDetail() {
   const { symbol } = useParams();
-  const { stocks, holdings } = useStore();
+  const { stocks, holdings, market } = useStore();
+  const open = market?.open ?? true;
   const { openOrder } = useUI();
   const navigate = useNavigate();
   const [range, setRange] = useState('1D');
@@ -94,8 +95,8 @@ export function StockDetail() {
                 {signedInr(change(s))} ({pct(changePct(s))}) <span style={{ color: 'var(--text-faint)', fontFamily: 'var(--ui)' }}>today</span>
               </div>
             </div>
-            <button className="btn btn-primary" style={{ padding: '10px 22px' }} onClick={() => openOrder(symbol, 'buy')}>Buy</button>
-            <button className="btn btn-sell" style={{ padding: '10px 22px' }} onClick={() => openOrder(symbol, 'sell')}>Sell</button>
+            <button className="btn btn-primary" style={{ padding: '10px 22px' }} disabled={!open} onClick={() => openOrder(symbol, 'buy')}>Buy</button>
+            <button className="btn btn-sell" style={{ padding: '10px 22px' }} disabled={!open} onClick={() => openOrder(symbol, 'sell')}>Sell</button>
           </div>
         </div>
 

@@ -17,12 +17,15 @@ export const pct = (n) => (n >= 0 ? '+' : '-') + Math.abs(n).toFixed(2) + '%';
 // Plain grouped integer (volumes): 1,71,842
 export const grouped = (n) => Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-// "16 Jul, 18:59"
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// "16 Jul, 18:59" — always IST, regardless of the viewer's timezone.
 export const fdate = (ts) => {
-  const d = new Date(ts);
-  const day = d.getDate();
-  const mon = d.toLocaleString('en-US', { month: 'short' });
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
+  const d = new Date(new Date(ts).getTime() + IST_OFFSET_MS);
+  const day = d.getUTCDate();
+  const mon = MONTHS[d.getUTCMonth()];
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
   return `${day} ${mon}, ${hh}:${mm}`;
 };

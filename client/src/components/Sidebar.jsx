@@ -71,7 +71,7 @@ export function Sidebar() {
             <span className={'live-label' + (open ? '' : ' closed')}>{open ? 'LIVE' : 'CLOSED'}</span>
           </div>
           <div className="live-caption">
-            {open ? 'Simulated market feed. Virtual funds only.' : 'Market closed · trades 09:15–15:30 IST, Mon–Fri.'}
+            {open ? 'Simulated market feed. Virtual funds only.' : (market?.reason || 'Market closed') + ' · trades 09:15–15:30 IST, Mon–Fri.'}
           </div>
         </div>
       </div>

@@ -44,20 +44,38 @@ export function StoreProvider({ children }) {
   }, [hydrate]);
 
   // Live prices arrive over a WebSocket (pushed by the server) instead of polling.
-  // Each tick we merge fresh prices + the open flag and set a flash direction; a
-  // short timer then clears flashes so the row background fades back out.
+  // On connect we get one FULL `snapshot` (with history); after that only slim
+  // `tick` payloads (price + flash), and we append each new price to the history
+  // we already hold — so the server ships ~0.4 KB per tick, not ~23 KB.
   useEffect(() => {
     if (!state.loaded) return undefined;
     const socket = connectSocket();
+    const HISTORY = 240;
 
+    // FULL snapshot: replace history outright.
+    const onSnapshot = (feed) => {
+      setState((prev) => {
+        const stocks = { ...prev.stocks };
+        for (const p of feed.stocks) {
+          const cur = stocks[p.symbol];
+          stocks[p.symbol] = { ...(cur || { symbol: p.symbol }), price: p.price, prevClose: p.prevClose, hist: p.hist, flash: 0 };
+        }
+        return { ...prev, stocks, market: { ...prev.market, open: feed.open, reason: feed.reason } };
+      });
+    };
+
+    // SLIM tick: update price/flash and append to our own history.
     const onTick = (feed) => {
       setState((prev) => {
         const stocks = { ...prev.stocks };
         for (const p of feed.stocks) {
           const cur = stocks[p.symbol];
-          if (cur) stocks[p.symbol] = { ...cur, price: p.price, prevClose: p.prevClose, hist: p.hist, flash: p.flash };
+          if (!cur) continue;
+          const hist = cur.hist ? [...cur.hist, p.price] : [p.price];
+          if (hist.length > HISTORY) hist.shift();
+          stocks[p.symbol] = { ...cur, price: p.price, prevClose: p.prevClose ?? cur.prevClose, hist, flash: p.flash };
         }
-        return { ...prev, stocks, market: { ...prev.market, open: feed.open } };
+        return { ...prev, stocks, market: { ...prev.market, open: feed.open, reason: feed.reason } };
       });
       clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => {
@@ -69,36 +87,46 @@ export function StoreProvider({ children }) {
       }, 700);
     };
 
+    socket.on('snapshot', onSnapshot);
     socket.on('tick', onTick);
     return () => {
+      socket.off('snapshot', onSnapshot);
       socket.off('tick', onTick);
       socket.close();
       clearTimeout(flashTimer.current);
     };
   }, [state.loaded]);
 
-  // ---- mutations: hit the API, then re-hydrate the snapshot ----
+  // ---- mutations ----
+  // A trade changes cash, holdings, orders and txns together, so a full refresh
+  // is the simplest correct choice here.
   const placeOrder = async (body, idempotencyKey) => {
     const r = await api.placeOrder(body, idempotencyKey);
     await hydrate();
     return r;
   };
+  // The lighter mutations return exactly what changed, so we merge the response
+  // into state rather than refetching the whole snapshot (cash + watchlist + all
+  // stocks with history + holdings + orders + txns) just to flip one field.
   const cancelOrder = async (id) => {
     await api.cancelOrder(id);
-    await hydrate();
+    setState((prev) => ({
+      ...prev,
+      orders: prev.orders.map((o) => (o.id === id ? { ...o, status: 'cancelled' } : o)),
+    }));
   };
   const wallet = async (body) => {
     const r = await api.wallet(body);
-    await hydrate();
+    setState((prev) => ({ ...prev, cash: r.cash, txns: [r.txn, ...prev.txns] }));
     return r;
   };
   const addWatch = async (symbol) => {
-    await api.addWatch(symbol);
-    await hydrate();
+    const r = await api.addWatch(symbol);
+    setState((prev) => ({ ...prev, watchlist: r.watchlist }));
   };
   const removeWatch = async (symbol) => {
-    await api.removeWatch(symbol);
-    await hydrate();
+    const r = await api.removeWatch(symbol);
+    setState((prev) => ({ ...prev, watchlist: r.watchlist }));
   };
 
   const value = { ...state, hydrate, placeOrder, cancelOrder, wallet, addWatch, removeWatch };

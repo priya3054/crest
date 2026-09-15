@@ -231,3 +231,131 @@ front door that serves the React build, **round-robins REST** across gateways an
 **pins each WebSocket** to one (`ip_hash`). An `X-Served-By` header proves requests
 land on different instances. Everything above (pub/sub, shared cache, shared rate
 limits) is exactly what lets those two gateways behave as one system.
+
+---
+
+## Phase — Audit fixes: correctness & hardening
+
+A code audit flagged ~30 issues. This phase fixes the correctness bugs first —
+including the ones where the README claimed something the code didn't do — then
+turns claims into evidence (a real test + CI). Ordered by how much each hurt.
+
+### The lesson of this phase: a claim without a test is a liability
+The README said "verified 40 concurrent buys never overspend", but there was no
+test in the repo. When we finally wrote that test (`server/test/concurrency.test.js`),
+it **failed** — and not on cash. Cash was safe (exactly 10 of 40 buys filled, wallet
+never negative), but the user's **share count came back 2 instead of 10**. The buy
+had a second, un-noticed race. Writing the test is what found it. A claim you can't
+run is worse than no claim: an interviewer opens the file and sees the gap.
+
+### #1 — The wallet endpoint was NOT concurrency-safe
+`applyTrade()` used the atomic guarded-update pattern, but `POST /api/wallet` still
+did the old "read balance → check → save" — the exact race the README said we'd
+fixed. Two concurrent withdrawals both read ₹1,000, both pass the check, both write:
+₹2,000 out of a ₹1,000 wallet. Fixed by using the same pattern everywhere:
+`findOneAndUpdate({ cash: { $gte: amt } }, { $inc: { cash: -amt } })` — the debit
+only applies if the balance still covers it, in one indivisible operation.
+
+### The buy-side share race (found by the test, not the audit)
+`applyTrade`'s buy path did `findOne(holding) → holding.qty += n → save()`. Under
+concurrent buys, several reads see the same qty and the last `save()` overwrites the
+others — **lost updates**, silently dropping shares the user paid for. Cash was fine
+because it used `$inc`; shares weren't because they used read-modify-write.
+Fix = **optimistic concurrency control (compare-and-swap)**: re-read qty, then update
+*only if qty is still what we read* (`findOneAndUpdate({ qty: oldQty }, ...)`); if a
+racing buy moved it, the update matches nothing and we retry. A brand-new holding is
+inserted, and the unique `(userId, symbol)` index turns a create-race into a
+duplicate-key error we retry as an update. Takeaway: **any read-modify-write on shared
+data is a race** — either `$inc` it or guard it.
+
+### Indexes must exist *before* the concurrency they protect
+The test first returned 2 shares even after the CAS fix. Cause: on a fresh DB the
+unique index hadn't been built yet (Mongoose builds indexes lazily in the
+background), so racing creates made duplicate documents instead of erroring. Because
+trade safety now *depends* on that index, the server builds indexes at boot with
+`await Account.init(); Holding.init(); Order.init()` before serving traffic.
+
+### #5 / #8 — Order lifecycle: write-ahead + reject failed fills
+- **Write-ahead:** the order is now saved as `pending` *before* any money moves, so
+  there's always an audit record of intent even if the fill throws. Money moving with
+  no order to explain it is the kind of thing you can never reconstruct later.
+- **Reject, don't retry forever:** a limit order whose fill failed used to stay
+  `pending`, so the producer retried it *every 1.4s forever*, failing every time. Now
+  a failed fill is marked `rejected` (new status + `rejectReason`) once and left alone.
+
+### #6 — An unindexed scan running 43×/min
+The producer's `Order.find({ status:'pending', type:'limit' })` matched no index, so
+Mongo scanned every order in the collection each tick. Added
+`index({ status:1, type:1, symbol:1 })` so it walks only the relevant slice.
+
+### #7 — Honest about the non-atomic trade
+A trade touches two documents (cash + holding) and they're not in one transaction.
+Each write is atomic and guarded (nothing goes negative), but a crash *between* them
+can diverge the halves. The proper fix is a Mongo multi-document transaction, which
+needs a replica set; the demo runs standalone Mongo. Documented in `trade.js` and the
+README rather than pretended away — naming a limitation precisely beats hiding it.
+
+### #9 / #10 / #11 — Failure-path hygiene
+- **Null guards** on `Account` reads so a missing account returns a clean 400, not a 500.
+- **JSON error handler** (last middleware): Express 5 forwards async throws to a
+  default handler that returns an HTML page the JSON client can't read — so every
+  error became a generic "Request failed". Now unhandled errors return `{ error }`.
+- **Idempotency key release:** if a handler crashed, its key stayed `pending` for its
+  full 1-hour TTL and the client's honest retry got "Duplicate request in progress"
+  for an hour. Now the key is released on response-finish if no success was stored.
+
+### #20 / #21 — Operational basics
+- `/health` now returns 503 if Mongo/Redis aren't connected (it used to always say
+  "ok", so a load balancer would keep routing to a broken instance).
+- **Graceful shutdown** on SIGTERM/SIGINT: stop the server, halt the tick loop, close
+  DB/Redis — so `docker compose down` can't kill us mid-write with dangling timers.
+
+### #3 — Deleted the dead `/api/prices` endpoint
+> Correction to Phase 1: the note above says the browser *polls* `GET /api/prices`
+> every 1.4s. That stopped being true once live prices moved to a **WebSocket** push.
+> `/api/prices` and its client helper were dead code (and undercut the "no polling"
+> selling point), so both were removed.
+
+### Evidence: test + CI
+`npm test` runs the concurrency test (Vitest). `.github/workflows/ci.yml` spins up
+real Mongo + Redis service containers and runs it on every push — so the "40 concurrent
+buys" claim is now backed by a green check anyone can re-run, not a sentence.
+
+### Security, performance, simulation, polish (P2–P5)
+
+- **Secrets fail loud:** the server now *crashes at boot* if `JWT_SECRET` is missing
+  in production, instead of silently signing tokens with a public fallback string
+  anyone could forge.
+- **Rate limiter fails closed for auth:** the order limiter still fails *open* (a
+  Redis hiccup shouldn't break trading), but the login limiter now fails *closed* —
+  if we can't count attempts, we block, so a Redis outage can't unlock brute-force.
+- **Security headers** (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
+  added as a tiny middleware — the helmet essentials without the dependency.
+- **Limit-price sanity band:** limit orders must be within 20% of the last price, so a
+  fat-fingered "buy at ₹1" can't sit un-fillable in the scan loop.
+- **The big bandwidth win (measured, not guessed):** the per-tick payload dropped from
+  **~22.4 KB to ~0.8 KB (~96%)** — new clients get one full `snapshot` with history,
+  then each tick ships only `{ symbol, price, prevClose, flash }` and the client (and
+  gateway-only instances) appends to the history it already holds.
+- **Don't refetch the world:** toggling a watchlist star used to refetch cash +
+  watchlist + all 12 stocks-with-history + holdings + orders + txns. Now the light
+  mutations merge the small response they already return; only a *trade* (which
+  changes several things at once) still does a full refresh.
+- **Simulation realism:** removed a hidden upward price bias (`random - 0.494`, which
+  compounded to ~+29%/day) in favour of symmetric noise + **mean reversion** toward
+  each stock's anchor; **prevClose now rolls once per IST trading day** (so "day change"
+  isn't "change since server boot"); added an NSE **holiday** check.
+- **Verify the audit too:** one flagged item (#25, "market open through 15:30:59") was
+  already correct in the code (`minutes < CLOSE_MIN`) — confirmed before "fixing" it.
+- **Polish:** shared `round2` in `utils/money.js`; boot-time env validation; `seed.js`
+  refuses to run (and drop the DB) under `NODE_ENV=production`.
+
+### Extra loopholes found in a full review pass
+- The new `rejected` order status had **no client rendering** (blank chip) — added the
+  chip + colour + an Orders filter. *Lesson: a new server enum needs matching client UI.*
+- **Money-path idempotency hardening:** after a successful fill, a failure to *record*
+  the executed status no longer returns a 5xx (which would release the idempotency key
+  and allow a retry to double-fill). Success is returned regardless; the status write is
+  a secondary record.
+- **Registration race:** two concurrent sign-ups with the same email both passed the
+  existence check; the unique index caught the loser as a raw 500 — now a clean 409.

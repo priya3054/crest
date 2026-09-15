@@ -4,6 +4,12 @@ import { Account } from '../models/Account.js';
 import { Transaction } from '../models/Transaction.js';
 import { nextId } from '../utils/ids.js';
 
+// A missing secret in production is a security hole: JWTs would be signed with a
+// well-known fallback string that anyone reading this public repo could forge. So
+// crash on boot rather than start insecure. In dev we allow a fallback for convenience.
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET is required in production');
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const STARTER_CASH = 100000; // every new account starts with ₹1,00,000 virtual funds
 

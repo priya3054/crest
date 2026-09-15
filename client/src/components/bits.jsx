@@ -3,8 +3,10 @@ import { change, changePct, trendColor } from '../lib/selectors.js';
 
 // Coloured order-status pill.
 export function StatusChip({ status }) {
-  const cls = { executed: 'chip-executed', pending: 'chip-pending', cancelled: 'chip-cancelled' }[status];
-  const label = { executed: 'Executed', pending: 'Pending', cancelled: 'Cancelled' }[status];
+  const cls = { executed: 'chip-executed', pending: 'chip-pending', cancelled: 'chip-cancelled', rejected: 'chip-rejected' }[status]
+    || 'chip-cancelled';
+  const label = { executed: 'Executed', pending: 'Pending', cancelled: 'Cancelled', rejected: 'Rejected' }[status]
+    || status;
   return <span className={'chip ' + cls}>{label}</span>;
 }
 

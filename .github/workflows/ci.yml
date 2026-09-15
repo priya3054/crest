@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+
+    # Real Mongo + Redis so the concurrency test exercises the actual atomic
+    # guarded updates, not a mock.
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    defaults:
+      run:
+        working-directory: server
+
+    env:
+      MONGO_URI: mongodb://127.0.0.1:27017/crest_test
+      REDIS_URL: redis://127.0.0.1:6379
+      JWT_SECRET: test-secret
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm test

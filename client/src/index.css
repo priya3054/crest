@@ -224,6 +224,7 @@ input, select { font-family: var(--ui); }
 .chip-executed { background: rgba(47, 201, 140, 0.13); color: var(--gain); }
 .chip-pending { background: var(--pending-soft); color: var(--pending); }
 .chip-cancelled { background: var(--neutral-soft); color: var(--neutral-chip); }
+.chip-rejected { background: rgba(242, 84, 91, 0.13); color: var(--loss); }
 .chip-sector { background: #1a202c; color: var(--text-muted); }
 
 .filter-chip {

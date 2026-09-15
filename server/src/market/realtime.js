@@ -28,11 +28,12 @@ export function initRealtime(httpServer, { isProducer }) {
   });
 
   io.on('connection', async (socket) => {
-    // Send the cached snapshot immediately so the client paints without waiting
-    // for the next tick (a cache read, not a recompute).
+    // Send the cached FULL snapshot (with history) immediately as a `snapshot`
+    // event so the client paints the chart without waiting for a tick. Per-tick
+    // updates then arrive as slim `tick` events the client appends to that history.
     try {
       const cached = await redis.get(KEY_SNAPSHOT);
-      if (cached) socket.emit('tick', JSON.parse(cached));
+      if (cached) socket.emit('snapshot', JSON.parse(cached));
     } catch {
       /* ignore */
     }

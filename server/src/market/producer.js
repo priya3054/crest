@@ -1,6 +1,6 @@
 import { Order } from '../models/Order.js';
 import { applyTrade } from '../services/trade.js';
-import { applyTick, snapshot, isMarketOpen, marketStatus, TICK_MS } from './market.js';
+import { applyTick, snapshot, tickSnapshot, isMarketOpen, marketStatus, TICK_MS } from './market.js';
 import { pub, redis, CHANNEL_TICKS, KEY_SNAPSHOT } from '../config/redis.js';
 
 let timer = null;
@@ -18,19 +18,29 @@ async function processLimitOrders(getPrice) {
     if (res.ok) {
       o.status = 'executed';
       o.price = o.limit;
-      await o.save();
+    } else {
+      // The price crossed but the fill failed (e.g. funds spent elsewhere, or
+      // the shares were already sold). Reject it once instead of leaving it
+      // `pending` — otherwise this same order retries and fails every tick,
+      // forever, hammering the DB.
+      o.status = 'rejected';
+      o.rejectReason = res.error;
     }
+    await o.save();
   }
 }
 
 // Publish the current market to the Redis tick channel AND cache it, so gateways
 // can push it to their clients and new connections get an instant snapshot.
 async function publish() {
-  const stocks = snapshot();
-  const priceOf = (sym) => stocks.find((s) => s.symbol === sym)?.price ?? null;
-  const payload = JSON.stringify({ open: marketStatus().open, stocks });
-  await redis.set(KEY_SNAPSHOT, payload);
-  await pub.publish(CHANNEL_TICKS, payload);
+  const full = snapshot(); // with history — cached for new connections
+  const slim = tickSnapshot(); // price/flash only — broadcast every tick
+  const priceOf = (sym) => slim.find((s) => s.symbol === sym)?.price ?? null;
+  const { open, reason } = marketStatus();
+  // Cache the FULL snapshot so a new client can paint the chart immediately, but
+  // publish only the SLIM payload to the per-tick channel (~98% smaller).
+  await redis.set(KEY_SNAPSHOT, JSON.stringify({ open, reason, stocks: full }));
+  await pub.publish(CHANNEL_TICKS, JSON.stringify({ open, reason, stocks: slim }));
   return priceOf;
 }
 
@@ -50,4 +60,12 @@ export function startProducer() {
   };
   timer = setTimeout(loop, TICK_MS);
   console.log(`[producer] started — ticking every ${TICK_MS}ms, publishing to Redis`);
+}
+
+// Stop the tick loop so a graceful shutdown doesn't leave a dangling timer.
+export function stopProducer() {
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
 }

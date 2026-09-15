@@ -3,15 +3,15 @@ import { Account } from '../models/Account.js';
 import { Holding } from '../models/Holding.js';
 import { Order } from '../models/Order.js';
 import { Transaction } from '../models/Transaction.js';
-import { getMarket, getStock, marketStatus } from '../market/market.js';
+import { getMarket, getStock, marketStatus, isMarketOpen } from '../market/market.js';
 import { applyTrade } from '../services/trade.js';
 import { requireAuth } from '../middleware/auth.js';
 import { orderLimiter } from '../middleware/rateLimit.js';
 import { idempotency } from '../middleware/idempotency.js';
 import { nextId } from '../utils/ids.js';
+import { round2 } from '../utils/money.js';
 
 const router = Router();
-const round2 = (n) => Math.round(n * 100) / 100;
 
 // Everything below requires a signed-in user; req.userId is set by requireAuth.
 router.use(requireAuth);
@@ -67,24 +67,11 @@ router.get('/state', async (req, res) => {
   });
 });
 
-// ---- GET /api/prices : lightweight live feed the client polls (~1.4s) ----
-// Prices are shared market data, identical for everyone. Includes the live
-// open/closed flag so the client can flip the LIVE badge mid-session.
-router.get('/prices', (_req, res) => {
-  res.json({
-    open: marketStatus().open,
-    stocks: getMarket().map((s) => ({
-      symbol: s.symbol,
-      price: s.price,
-      prevClose: s.prevClose,
-      hist: s.hist,
-      flash: s.flash,
-    })),
-  });
-});
-
 // ---- POST /api/orders : place a market or limit order ----
 router.post('/orders', orderLimiter, idempotency, async (req, res) => {
+  if (!isMarketOpen())
+    return res.status(409).json({ error: 'Market is closed. NSE trades 09:15–15:30 IST, Mon–Fri.' });
+
   const { symbol, side, type, qty: rawQty, limit } = req.body || {};
   const s = getStock(symbol);
   if (!s) return res.status(400).json({ error: 'Unknown stock.' });
@@ -96,17 +83,28 @@ router.post('/orders', orderLimiter, idempotency, async (req, res) => {
 
   const px = type === 'limit' ? Number(limit) || 0 : s.price;
   if (type === 'limit' && px <= 0) return res.status(400).json({ error: 'Enter a limit price.' });
+  // Sanity band: reject limit prices more than 20% off the last traded price. A
+  // wild limit (e.g. buy at ₹1) would never fill and would sit in the producer's
+  // scan loop indefinitely; this also catches fat-finger inputs.
+  if (type === 'limit') {
+    const band = 0.2;
+    if (px < s.price * (1 - band) || px > s.price * (1 + band))
+      return res.status(400).json({ error: `Limit price must be within 20% of the current price (₹${round2(s.price)}).` });
+  }
 
   const account = await Account.findOne({ userId: req.userId });
+  if (!account) return res.status(400).json({ error: 'Account not found.' });
   if (side === 'buy' && qty * px > account.cash)
     return res.status(400).json({ error: 'Insufficient balance — add funds to place this order.' });
   const hold = await Holding.findOne({ userId: req.userId, symbol });
   if (side === 'sell' && (!hold || hold.qty < qty))
     return res.status(400).json({ error: `Insufficient holdings — you hold ${hold ? hold.qty : 0} shares of ${symbol}.` });
 
-  const executed = type === 'market';
+  // Write-ahead: persist the order as `pending` BEFORE any money moves. If the
+  // fill (or the process) dies mid-trade, we still have an audit record of the
+  // intent instead of cash changing with no order to explain it.
   const orderId = await nextId('orderId', 'ORD');
-  const doc = {
+  const order = await Order.create({
     userId: req.userId,
     orderId,
     ts: new Date(),
@@ -116,16 +114,28 @@ router.post('/orders', orderLimiter, idempotency, async (req, res) => {
     qty,
     price: round2(px),
     limit: type === 'limit' ? round2(px) : undefined,
-    status: executed ? 'executed' : 'pending',
-  };
+    status: 'pending',
+  });
 
+  // Market orders fill immediately; limit orders stay pending for the producer
+  // to fill when the price crosses (see market/producer.js).
+  const executed = type === 'market';
   if (executed) {
     const r = await applyTrade(req.userId, symbol, side, qty, px);
-    if (!r.ok) return res.status(400).json({ error: `${r.error}.` });
+    if (!r.ok) {
+      order.status = 'rejected';
+      order.rejectReason = r.error;
+      await order.save().catch(() => {});
+      return res.status(400).json({ error: `${r.error}.` });
+    }
+    // The trade already moved money. Never let a failure to *record* the executed
+    // status become a 5xx — that would release the idempotency key and let a retry
+    // fill a second time. Return success regardless; the status write is secondary.
+    order.status = 'executed';
+    await order.save().catch((e) => console.error('[orders] status write failed after fill', e));
   }
-  await Order.create(doc);
 
-  res.json({ ok: true, order: serOrder(doc), executed });
+  res.json({ ok: true, order: serOrder(order), executed });
 });
 
 // ---- POST /api/orders/:id/cancel : cancel a pending order (owned by the user) ----
@@ -145,13 +155,21 @@ router.post('/wallet', async (req, res) => {
   const amt = Math.floor(Number(rawAmount) || 0);
   if (amt < 100) return res.status(400).json({ error: 'Enter an amount of at least ₹100.' });
 
-  const account = await Account.findOne({ userId: req.userId });
-  if (mode === 'withdraw' && amt > account.cash)
-    return res.status(400).json({ error: 'Amount exceeds your wallet balance.' });
-
   const dir = mode === 'add' ? 1 : -1;
-  account.cash = round2(account.cash + dir * amt);
-  await account.save();
+  // Atomic, concurrency-safe move — the same guarded-update pattern as applyTrade.
+  // The `$gte` filter means a withdrawal only succeeds if the balance still covers
+  // it at write time, so two concurrent withdrawals can never both pass. Reading
+  // the balance and then writing it back (findOne + save) would be a race.
+  const filter = mode === 'withdraw'
+    ? { userId: req.userId, cash: { $gte: amt } }
+    : { userId: req.userId };
+  const account = await Account.findOneAndUpdate(
+    filter,
+    { $inc: { cash: dir * amt } },
+    { new: true }
+  );
+  if (!account)
+    return res.status(400).json({ error: 'Amount exceeds your wallet balance.' });
 
   const txnId = await nextId('txnId', 'TXN');
   const txn = await Transaction.create({
@@ -173,6 +191,7 @@ router.post('/watchlist', async (req, res) => {
   const { symbol } = req.body || {};
   if (!getStock(symbol)) return res.status(400).json({ error: 'Unknown stock.' });
   const account = await Account.findOne({ userId: req.userId });
+  if (!account) return res.status(400).json({ error: 'Account not found.' });
   if (!account.watchlist.includes(symbol)) {
     account.watchlist.push(symbol);
     await account.save();
@@ -182,6 +201,7 @@ router.post('/watchlist', async (req, res) => {
 
 router.delete('/watchlist/:symbol', async (req, res) => {
   const account = await Account.findOne({ userId: req.userId });
+  if (!account) return res.status(400).json({ error: 'Account not found.' });
   account.watchlist = account.watchlist.filter((s) => s !== req.params.symbol);
   await account.save();
   res.json({ ok: true, watchlist: account.watchlist });

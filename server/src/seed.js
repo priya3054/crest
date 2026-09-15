@@ -31,6 +31,13 @@ const H = 3600e3;
 const D = 24 * H;
 
 async function seed() {
+  // Guard: seeding drops the entire database. One stray `npm run seed` against a
+  // real database would erase it, so refuse to run in production.
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[seed] refusing to run with NODE_ENV=production — this drops the database.');
+    process.exit(1);
+  }
+
   await connectDB(process.env.MONGO_URI);
 
   // Drop everything (incl. old indexes) so the schema change to per-user data is clean.

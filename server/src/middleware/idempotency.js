@@ -28,14 +28,21 @@ export async function idempotency(req, res, next) {
   }
 
   // We own the key — capture the response so repeats can replay it.
+  let stored = false;
   const sendJson = res.json.bind(res);
   res.json = (body) => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
+      stored = true;
       redis.set(rkey, JSON.stringify({ state: 'done', status: res.statusCode, body }), 'EX', 3600).catch(() => {});
-    } else {
-      redis.del(rkey).catch(() => {}); // a failed attempt shouldn't block a real retry
     }
     return sendJson(body);
   };
+  // Safety net: if the handler throws (or sends any non-2xx) we never stored a
+  // result, so release the claim on response-finish. Otherwise a crashed request
+  // would leave the key `pending` for its full 1-hour TTL and the client's honest
+  // retry would keep getting "Duplicate request already in progress".
+  res.on('finish', () => {
+    if (!stored) redis.del(rkey).catch(() => {});
+  });
   next();
 }

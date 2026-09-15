@@ -4,7 +4,8 @@ import { useStore } from '../context/store.jsx';
 import { inr } from '../lib/format.js';
 
 export function OrderModal({ initial, onClose }) {
-  const { stocks, cash, holdings, placeOrder } = useStore();
+  const { stocks, cash, holdings, placeOrder, market } = useStore();
+  const open = market?.open ?? true;
   const navigate = useNavigate();
 
   const symbols = Object.keys(stocks);
@@ -114,14 +115,20 @@ export function OrderModal({ initial, onClose }) {
 
             {error && <div className="error-panel" style={{ marginBottom: 16 }}>{error}</div>}
 
-            <button
-              className={'btn btn-block ' + (side === 'buy' ? 'btn-primary' : '')}
-              style={side === 'sell' ? { background: 'var(--loss)', color: '#fff' } : undefined}
-              disabled={busy}
-              onClick={submit}
-            >
-              {busy ? 'Placing…' : confirmLabel}
-            </button>
+            {open ? (
+              <button
+                className={'btn btn-block ' + (side === 'buy' ? 'btn-primary' : '')}
+                style={side === 'sell' ? { background: 'var(--loss)', color: '#fff' } : undefined}
+                disabled={busy}
+                onClick={submit}
+              >
+                {busy ? 'Placing…' : confirmLabel}
+              </button>
+            ) : (
+              <div className="error-panel" style={{ textAlign: 'center' }}>
+                Market is closed · trades 09:15–15:30 IST, Mon–Fri
+              </div>
+            )}
           </>
         )}
       </div>

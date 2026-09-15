@@ -15,10 +15,11 @@ const SORTS = [
 const COLS = 'minmax(150px,1.6fr) .5fr .9fr .9fr 1fr 1.3fr';
 
 export function Portfolio() {
-  const { stocks, holdings } = useStore();
+  const { stocks, holdings, market } = useStore();
   const { openOrder } = useUI();
   const navigate = useNavigate();
   const [sort, setSort] = useState('value');
+  const open = market?.open ?? true;
 
   const pf = portfolio(holdings, stocks);
   const rows = [...pf.rows].sort((a, b) => {
@@ -70,7 +71,7 @@ export function Portfolio() {
           {rows.length === 0 ? (
             <div className="empty">
               <div className="msg">No holdings yet</div>
-              <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => openOrder()}>
+              <button className="btn btn-primary" style={{ marginTop: 14 }} disabled={!open} onClick={() => openOrder()}>
                 Place an order
               </button>
             </div>

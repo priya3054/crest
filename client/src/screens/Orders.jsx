@@ -5,14 +5,15 @@ import { TopBar } from '../components/TopBar.jsx';
 import { StatusChip, SideLabel } from '../components/bits.jsx';
 import { inr, fdate } from '../lib/format.js';
 
-const FILTERS = ['all', 'pending', 'executed', 'cancelled'];
-const LABEL = { all: 'All', pending: 'Pending', executed: 'Executed', cancelled: 'Cancelled' };
+const FILTERS = ['all', 'pending', 'executed', 'cancelled', 'rejected'];
+const LABEL = { all: 'All', pending: 'Pending', executed: 'Executed', cancelled: 'Cancelled', rejected: 'Rejected' };
 const COLS = '110px minmax(130px,1.5fr) .55fr .7fr .5fr .95fr .95fr .7fr';
 
 export function Orders() {
-  const { orders, cancelOrder } = useStore();
+  const { orders, cancelOrder, market } = useStore();
   const { openOrder } = useUI();
   const [filter, setFilter] = useState('all');
+  const open = market?.open ?? true;
 
   const rows = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
 
@@ -32,7 +33,7 @@ export function Orders() {
           {rows.length === 0 ? (
             <div className="empty">
               <div className="msg">No orders here</div>
-              <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => openOrder()}>
+              <button className="btn btn-primary" style={{ marginTop: 14 }} disabled={!open} onClick={() => openOrder()}>
                 Place an order
               </button>
             </div>

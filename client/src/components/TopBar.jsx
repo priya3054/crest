@@ -4,9 +4,10 @@ import { useUI } from '../context/ui.jsx';
 import { inr } from '../lib/format.js';
 
 export function TopBar({ title }) {
-  const { cash } = useStore();
+  const { cash, market } = useStore();
   const { openOrder, toggleNav } = useUI();
   const navigate = useNavigate();
+  const open = market?.open ?? true;
 
   return (
     <header className="topbar">
@@ -19,7 +20,7 @@ export function TopBar({ title }) {
           <span className="label">WALLET</span>
           <span className="bal mono">{inr(cash)}</span>
         </button>
-        <button className="btn btn-primary" onClick={() => openOrder()}>
+        <button className="btn btn-primary" disabled={!open} onClick={() => openOrder()}>
           Place order
         </button>
       </div>

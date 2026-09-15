@@ -5,10 +5,13 @@ import { redis } from '../config/redis.js';
 // and count what's left. Because the state lives in Redis, the limit holds across
 // every load-balanced gateway instance — not per-process.
 //
-//   windowSec – window length in seconds
-//   max       – max requests allowed within the window
-//   keyFn     – derives the bucket id from the request (per-IP, per-user, …)
-export function rateLimit({ windowSec, max, keyFn, message }) {
+//   windowSec  – window length in seconds
+//   max        – max requests allowed within the window
+//   keyFn      – derives the bucket id from the request (per-IP, per-user, …)
+//   failClosed – if Redis is unreachable, block (503) instead of allowing through.
+//                Use for brute-force protection where "allow everything" is worse
+//                than "temporarily unavailable".
+export function rateLimit({ windowSec, max, keyFn, message, failClosed = false }) {
   return async (req, res, next) => {
     let count;
     try {
@@ -26,7 +29,11 @@ export function rateLimit({ windowSec, max, keyFn, message }) {
         .then((r) => [r[0][1], r[1][1], r[2][1]]);
       count = cardinality;
     } catch {
-      // Fail open: never let a Redis hiccup take the API down.
+      if (failClosed) {
+        // Can't verify the limit → refuse rather than allow unlimited attempts.
+        return res.status(503).json({ error: 'Service temporarily unavailable — try again shortly.' });
+      }
+      // Fail open: never let a Redis hiccup take the rest of the API down.
       return next();
     }
 
@@ -46,6 +53,7 @@ export const authLimiter = rateLimit({
   max: 20,
   keyFn: (req) => `auth:${req.ip}`,
   message: 'Too many attempts. Try again in a few minutes.',
+  failClosed: true, // brute-force protection: if Redis is down, block rather than allow unlimited guesses
 });
 
 // Order-spam protection, keyed by the signed-in user.
