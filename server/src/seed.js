@@ -10,7 +10,6 @@ import { Transaction } from './models/Transaction.js';
 import { Counter } from './models/Counter.js';
 import { hashPassword } from './services/auth.js';
 
-// 12 NSE-style stocks: [symbol, name, sector, anchorPrice, baseVolume] — shared market data.
 const STOCK_DEFS = [
   ['RELIANCE', 'Reliance Industries', 'Energy', 2984.5, 842],
   ['TCS', 'Tata Consultancy', 'IT Services', 4102.3, 311],
@@ -31,8 +30,6 @@ const H = 3600e3;
 const D = 24 * H;
 
 async function seed() {
-  // Guard: seeding drops the entire database. One stray `npm run seed` against a
-  // real database would erase it, so refuse to run in production.
   if (process.env.NODE_ENV === 'production') {
     console.error('[seed] refusing to run with NODE_ENV=production — this drops the database.');
     process.exit(1);
@@ -40,14 +37,12 @@ async function seed() {
 
   await connectDB(process.env.MONGO_URI);
 
-  // Drop everything (incl. old indexes) so the schema change to per-user data is clean.
   await mongoose.connection.dropDatabase();
 
   await Stock.insertMany(
     STOCK_DEFS.map(([symbol, name, sector, anchor, volq]) => ({ symbol, name, sector, anchor, volq }))
   );
 
-  // Demo account with a ready-made portfolio so there's something to log into.
   const demo = await User.create({
     name: DEMO.name,
     email: DEMO.email,
@@ -84,8 +79,6 @@ async function seed() {
     { userId, txnId: 'TXN-3002', ts: new Date(now - 6 * D), type: 'Starter credit', via: 'Crest', amount: 100000, dir: 1, status: 'completed' },
   ]);
 
-  // Seed the id counters to the highest values used above, so the next allocated
-  // ids continue the sequence (ORD-1048, TXN-3022, …).
   await Counter.insertMany([
     { _id: 'orderId', seq: 1047 },
     { _id: 'txnId', seq: 3021 },
