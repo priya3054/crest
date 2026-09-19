@@ -359,3 +359,12 @@ input, select { font-family: var(--ui); }
   .btn-primary { padding: 9px 12px; }
   .page { padding: 18px 12px 56px; }
 }
+
+/* Scale the whole UI up on desktop for readability on large screens.
+   Full-height elements are divided by the zoom factor so they still render
+   at one viewport tall (nothing in the sidebar gets pushed off-screen). */
+@media (min-width: 901px) {
+  #root { zoom: 1.25; }
+  .app { min-height: calc(100vh / 1.25); }
+  .sidebar { height: calc(100vh / 1.25); }
+}
